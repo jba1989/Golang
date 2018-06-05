@@ -25,6 +25,7 @@ func main() {
 	fmt.Println("x+a=", x+intToStr(a))
 }
 
+//數字轉文字
 func intToStr(i int) string {
 	str := strconv.Itoa(i)
 	return str
