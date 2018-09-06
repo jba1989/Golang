@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 )
@@ -31,28 +30,28 @@ func main() {
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	var rateline []Rateline
 
-	for {
-		line, error := reader.Read()
-		if error == io.EOF {
-			break
-		} else if error != nil {
-			log.Fatal(error)
-		}
+	line, error := reader.ReadAll()
+	if error != nil {
+		log.Fatal(error)
+	}
 
+	for i := 0; i < len(line); i++ {
+		if i == 0 {
+			continue
+		}
 		rateline = append(rateline, Rateline{
-			Country: line[0],
+			Country: line[i][0],
 			Now: Now{
-				Buy:  line[2],
-				Sell: line[12],
+				Buy:  line[i][2],
+				Sell: line[i][12],
 			},
 			Current: Current{
-				Buy:  line[3],
-				Sell: line[13],
+				Buy:  line[i][3],
+				Sell: line[i][13],
 			},
 		})
 	}
 
 	ratelineJson, _ := json.MarshalIndent(rateline, "", "	")
 	fmt.Println(string(ratelineJson))
-
 }
