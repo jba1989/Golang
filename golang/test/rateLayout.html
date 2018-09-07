@@ -1,0 +1,20 @@
+<table style="border:1px solid;" border='1'>   
+    <caption>rate</caption>  
+    <tr>          
+            <td>{{.Country}}</td>          
+            <td>{{.NowBuy}}</td> 
+            <td>{{.NowSell}}</td>   
+            <td>{{.CurrentBuy}}</td>
+            <td>{{.CurrentSell}}</td>   
+            </tr>    
+        {{range .}}
+            <tr>          
+            <td>{{.Country}}</td>          
+            <td>{{.NowBuy}}</td> 
+            <td>{{.NowSell}}</td>   
+            <td>{{.CurrentBuy}}</td>
+            <td>{{.CurrentSell}}</td>   
+            </tr>    
+        {{end}}
+</table>
+       
