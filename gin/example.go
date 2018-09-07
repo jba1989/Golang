@@ -92,6 +92,7 @@ func DownloadFileHandler(w http.ResponseWriter, r *http.Request) {
 	//SaveRate(data)
 }
 
+// 整理下載好的.csv檔
 func TransFileHandler(w http.ResponseWriter, r *http.Request) {
 	data := Load()
 	SaveRate(data)
