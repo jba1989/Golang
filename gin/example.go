@@ -13,28 +13,64 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func Falsh() {
-	tmpl := template.Must(template.ParseFiles("rateLayout.html"))
+func main() {
+	r := mux.NewRouter()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		data := Load()
-		tmpl.Execute(w, data)
-	})
+	// Routes consist of a path and a handler function.
+	r.HandleFunc("/downloadfile", DownloadFileHandler)
 
-	http.HandleFunc("/de/{id}", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		fmt.Println(vars["id"])
-	})
+	r.HandleFunc("/", IndexHandler)
 
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		log.Fatal("ListenAndServe", err)
-	}
+	r.HandleFunc("/delete/{currency}", DeleteHandler)
+
+	// Bind to a port and pass our router in
+	log.Fatal(http.ListenAndServe(":8000", r))
+
 }
 
-// Load will return a map
-func Load() map[string][]string {
-	csvFile, _ := os.Open("rate.csv")
+func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("rateLayout.html"))
+	data := Flash()
+	tmpl.Execute(w, data)
+}
+
+func DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	data := Flash()
+	delete(data, vars["currency"])
+	fmt.Printf("%v", data)
+	SaveRate(data)
+}
+
+func DownloadFileHandler(w http.ResponseWriter, r *http.Request) {
+	newFileName := "rate.csv"
+	file, err := os.Create(newFileName)
+	defer file.Close()
+	defer w.Write([]byte("finished!\n"))
+
+	res, err := http.Get("https://rate.bot.com.tw/xrt/flcsv/0/day")
+	if err != nil {
+		fmt.Println("downfile error")
+		return
+	}
+	buf := make([]byte, 1024)
+	for {
+		size, _ := res.Body.Read(buf)
+
+		if size == 0 {
+			break
+		} else {
+			file.Write(buf[:size])
+		}
+	}
+
+	//data := Load("rate.csv")
+	//SaveRate(data)
+}
+
+// Load download file and return a map(目前必須手動把.csv的第一行中文刪掉,不然會噴錯)
+func Load(file string) map[string][]string {
+	csvFile, _ := os.Open(file)
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	var currency = make(map[string][]string)
 
@@ -53,7 +89,7 @@ func Load() map[string][]string {
 	return currency
 }
 
-// Flash will return a map
+// Flash new file and return a map
 func Flash() map[string][]string {
 	csvFile, _ := os.Open("newRate.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
@@ -65,31 +101,18 @@ func Flash() map[string][]string {
 	}
 
 	for i := 0; i < len(line); i++ {
-		if i == 0 {
-			continue
-		}
 		currency[line[i][0]] = []string{line[i][0], line[i][1], line[i][2], line[i][3], line[i][4]}
 	}
 
 	return currency
 }
 
-/*
-func DeleteCurrency() {
-	_, ok := Currency["CAD"]
-	if ok != nil {
-		delete(Currency, "CAD")
-	}
-
-}
-*/
-
-func SaveRate() {
+func SaveRate(input map[string][]string) {
 	fileName := "newRate.csv"
 	buf := new(bytes.Buffer)
 	r2 := csv.NewWriter(buf)
 
-	data := Load()
+	data := input
 	for _, v := range data {
 		r2.Write(v)
 		r2.Flush()
