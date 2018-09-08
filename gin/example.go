@@ -46,7 +46,7 @@ func PickHandler(w http.ResponseWriter, r *http.Request) {
 	if ok != true {
 		defer w.Write([]byte("No this currency\n"))
 	}
-	tmpl := template.Must(template.ParseFiles("singleRateLayout.html"))
+	tmpl := template.Must(template.ParseFiles("singleRateLayout.html", "css.html"))
 	tmpl.Execute(w, rate)
 }
 
@@ -60,7 +60,7 @@ func DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	delete(data, vars["currency"])
 	SaveRate(data)
-	tmpl := template.Must(template.ParseFiles("rateLayout.html"))
+	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
 	tmpl.Execute(w, data)
 }
 
