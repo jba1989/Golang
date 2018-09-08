@@ -26,6 +26,8 @@ func main() {
 
 	r.HandleFunc("/delete/{currency}", DeleteHandler)
 
+	r.HandleFunc("/add/{currency}/{nb}/{ns}/{cb}/{cs}", AddHandler)
+
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))
 
@@ -33,7 +35,7 @@ func main() {
 
 // 匯率總表
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl := template.Must(template.ParseFiles("rateLayout.html"))
+	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
 	data := Flash()
 	tmpl.Execute(w, data)
 }
@@ -60,6 +62,17 @@ func DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	delete(data, vars["currency"])
 	SaveRate(data)
+	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
+	tmpl.Execute(w, data)
+}
+
+// 增加一幣別匯率
+func AddHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	data := Flash()
+	data[vars["currency"]] = []string{vars["currency"], vars["nb"], vars["ns"], vars["cb"], vars["cs"]}
+	SaveRate(data)
+	fmt.Printf("%v", data)
 	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
 	tmpl.Execute(w, data)
 }
