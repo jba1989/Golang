@@ -112,9 +112,6 @@ func Load() map[string][]string {
 	}
 
 	for i := 0; i < len(line); i++ {
-		if i == 0 {
-			continue
-		}
 		currency[line[i][0]] = []string{line[i][0], line[i][2], line[i][12], line[i][3], line[i][13]}
 	}
 
