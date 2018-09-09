@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -16,17 +17,20 @@ import (
 func main() {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/download", DownloadFileHandler)
-
-	r.HandleFunc("/trans", TransFileHandler)
-
+	// 匯率總表
 	r.HandleFunc("/", IndexHandler)
 
+	// 下載匯率檔案
+	r.HandleFunc("/download", DownloadFileHandler)
+
+	// 選擇單一幣別
 	r.HandleFunc("/pick/{currency}", PickHandler)
 
-	r.HandleFunc("/delete/{currency}", DeleteHandler)
-
+	// 增加一幣別匯率 nb:現金買, ns:現金賣, cb:即期買, cs:即期賣
 	r.HandleFunc("/add/{currency}/{nb}/{ns}/{cb}/{cs}", AddHandler)
+
+	// 刪除單一幣別
+	r.HandleFunc("/delete/{currency}", DeleteHandler)
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))
@@ -40,46 +44,9 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-// 選擇單一幣別
-func PickHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	data := Flash()
-	rate, ok := data[vars["currency"]]
-	if ok != true {
-		defer w.Write([]byte("No this currency\n"))
-	}
-	tmpl := template.Must(template.ParseFiles("singleRateLayout.html", "css.html"))
-	tmpl.Execute(w, rate)
-}
-
-// 刪除單一幣別
-func DeleteHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	data := Flash()
-	_, ok := data[vars["currency"]]
-	if ok != true {
-		defer w.Write([]byte("No this currency\n"))
-	}
-	delete(data, vars["currency"])
-	SaveRate(data)
-	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
-	tmpl.Execute(w, data)
-}
-
-// 增加一幣別匯率
-func AddHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	data := Flash()
-	data[vars["currency"]] = []string{vars["currency"], vars["nb"], vars["ns"], vars["cb"], vars["cs"]}
-	SaveRate(data)
-	fmt.Printf("%v", data)
-	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
-	tmpl.Execute(w, data)
-}
-
 // 下載匯率檔案(目前必須手動把.csv的第一行中文刪掉,不然會噴錯)
 func DownloadFileHandler(w http.ResponseWriter, r *http.Request) {
-	newFileName := "rate.csv"
+	newFileName := "rawRate.csv"
 	file, err := os.Create(newFileName)
 	defer file.Close()
 	defer w.Write([]byte("finished!\n"))
@@ -100,19 +67,79 @@ func DownloadFileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 目前必須手動把.csv的第一行中文刪掉,不然會噴錯
-	//data := Load()
-	//SaveRate(data)
-}
-
-// 整理下載好的.csv檔
-func TransFileHandler(w http.ResponseWriter, r *http.Request) {
+	removeContentTitle()
 	data := Load()
 	SaveRate(data)
-	defer w.Write([]byte("finished!\n"))
 }
 
-// 讀取下載的檔案並回傳各幣別的匯率(目前必須手動把.csv的第一行中文刪掉,不然會噴錯)
+// 選擇單一幣別
+func PickHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	data := Flash()
+	rate, ok := data[vars["currency"]]
+	if ok != true {
+		defer w.Write([]byte("No this currency\n"))
+	}
+	tmpl := template.Must(template.ParseFiles("singleRateLayout.html", "css.html"))
+	tmpl.Execute(w, rate)
+}
+
+// 增加一幣別匯率
+func AddHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	data := Flash()
+	data[vars["currency"]] = []string{vars["currency"], vars["nb"], vars["ns"], vars["cb"], vars["cs"]}
+	SaveRate(data)
+	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
+	tmpl.Execute(w, data)
+}
+
+// 刪除單一幣別
+func DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	data := Flash()
+	_, ok := data[vars["currency"]]
+	if ok != true {
+		defer w.Write([]byte("No this currency\n"))
+	}
+	delete(data, vars["currency"])
+	SaveRate(data)
+	tmpl := template.Must(template.ParseFiles("rateLayout.html", "css.html"))
+	tmpl.Execute(w, data)
+}
+
+// 將csv的第一行中文刪掉(不然在csv套件讀取時會噴錯)
+func removeContentTitle() {
+	fileName := "rawRate.csv"
+	newFileName := "rate.csv"
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0666)
+	newFile, err := os.Create(newFileName)
+	defer file.Close()
+	defer newFile.Close()
+
+	if err != nil {
+		fmt.Println("Open file error!", err)
+		return
+	}
+
+	buf := bufio.NewReader(file)
+	i := 0
+	for {
+		line, err := buf.ReadString('\n')
+		if err != nil {
+			return
+		}
+
+		if i == 0 {
+			i++
+			continue
+		}
+		line = strings.TrimSpace(line)
+		newFile.WriteString(line + "\n")
+	}
+}
+
+// 讀rate.csv的檔案並回傳各幣別的匯率
 func Load() map[string][]string {
 	csvFile, _ := os.Open("rate.csv")
 	defer csvFile.Close()
@@ -131,7 +158,7 @@ func Load() map[string][]string {
 	return currency
 }
 
-// 讀取已更新完的檔案並回傳各幣別的匯率
+// 讀取已newRate.csv並回傳各幣別的匯率
 func Flash() map[string][]string {
 	csvFile, _ := os.Open("newRate.csv")
 	defer csvFile.Close()
@@ -150,7 +177,7 @@ func Flash() map[string][]string {
 	return currency
 }
 
-// 將匯率寫進csv內
+// 將匯率寫進newRate.csv內
 func SaveRate(input map[string][]string) {
 	fileName := "newRate.csv"
 	buf := new(bytes.Buffer)
